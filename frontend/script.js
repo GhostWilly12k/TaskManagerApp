@@ -1,53 +1,78 @@
-const API_URL = "http://localhost:5000/tasks";
+// Wait for the DOM to load
+document.addEventListener("DOMContentLoaded", async () => {
+    const taskList = document.getElementById("task-list");
+    const addTaskButton = document.getElementById("add-task-button");
+    const taskInput = document.getElementById("task-input");
 
-// Fetch tasks from backend
-async function fetchTasks() {
-    let response = await fetch(API_URL);
-    let tasks = await response.json();
-    displayTasks(tasks);
-}
+    // Fetch all tasks from the backend
+    const fetchTasks = async () => {
+        try {
+            const res = await fetch("http://localhost:5000/tasks");
+            const tasks = await res.json();
 
-// Display tasks in the UI
-function displayTasks(tasks) {
-    let taskList = document.getElementById("taskList");
-    taskList.innerHTML = ""; // Clear existing tasks
+            // Clear the task list
+            taskList.innerHTML = "";
 
-    tasks.forEach((task, index) => {
-        let li = document.createElement("li");
-        li.innerHTML = `${task} <button onclick="deleteTask(${index})">Delete</button>`;
-        taskList.appendChild(li);
+            // Loop through tasks and display them
+            tasks.forEach((task) => {
+                const li = document.createElement("li");
+                li.textContent = task.task;
+                li.setAttribute("data-id", task._id);
+
+                // Delete task button
+                const deleteBtn = document.createElement("button");
+                deleteBtn.textContent = "Delete";
+                deleteBtn.addEventListener("click", () => deleteTask(task._id));
+
+                li.appendChild(deleteBtn);
+                taskList.appendChild(li);
+            });
+        } catch (err) {
+            console.error("Error fetching tasks:", err);
+        }
+    };
+
+    // Add a task when the button is clicked
+    addTaskButton.addEventListener("click", async (e) => {
+        e.preventDefault();
+
+        const task = taskInput.value.trim();
+        if (!task) return;
+
+        try {
+            const res = await fetch("http://localhost:5000/tasks", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ task }),
+            });
+
+            const data = await res.json();
+            if (res.status === 200) {
+                console.log("Task added, refreshing task list...");
+                fetchTasks();
+            }
+        } catch (err) {
+            console.error("Error adding task:", err);
+        }
+
+        taskInput.value = "";
     });
-}
 
-// Add a new task
-async function addTask() {
-    let taskInput = document.getElementById("taskInput");
+    // Delete a task
+    const deleteTask = async (id) => {
+        try {
+            const res = await fetch(`http://localhost:5000/tasks/${id}`, {
+                method: "DELETE",
+            });
 
-    if (taskInput.value.trim() === "") {
-        alert("Task cannot be empty!");
-        return;
-    }
+            if (res.ok) {
+                fetchTasks(); // Refresh task list after deletion
+            }
+        } catch (err) {
+            console.error("Error deleting task:", err);
+        }
+    };
 
-    let response = await fetch(API_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ task: taskInput.value })
-    });
-
-    if (response.ok) {
-        fetchTasks(); // Refresh tasks list
-        taskInput.value = ""; // Clear input
-    }
-}
-
-// Delete a task
-async function deleteTask(index) {
-    let response = await fetch(`${API_URL}/${index}`, { method: "DELETE" });
-
-    if (response.ok) {
-        fetchTasks(); // Refresh tasks list
-    }
-}
-
-// Fetch tasks on page load
-fetchTasks();
+    // Initialize task list
+    fetchTasks();
+});
